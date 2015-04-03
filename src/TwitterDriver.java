@@ -43,7 +43,7 @@ public class TwitterDriver {
     job.setMapperClass(TwitterMapper.class);
     job.setReducerClass(TwitterReducer.class);
     
-    job.setOutputKeyClass(Text.class);
+    job.setOutputKeyClass(IntWritable.class);
     job.setOutputValueClass(IntWritable.class);
     
     /*

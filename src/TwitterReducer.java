@@ -1,21 +1,20 @@
-
+package src;
 import java.io.IOException;
 
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
 
-public class TwitterReducer extends Reducer<IntWritable, IntWritable, IntWritable, IntWritable> {
+public class TwitterReducer extends Reducer<IntWritable, Text, IntWritable, Text> {
 
   @Override
-  public void reduce(IntWritable key, Iterable<IntWritable> values, Context context)
+  public void reduce(IntWritable key, Iterable<Text> values, Context context)
       throws IOException, InterruptedException {
 
-	  int count = 0;
-	  for (IntWritable value : values) {
-			count += value.get();
+
+	  for (Text value : values) {
+		context.write(key, value);
 	  }
-	context.write(key, new IntWritable(count));
 	
 
   }

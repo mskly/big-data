@@ -1,4 +1,4 @@
-
+package src;
 
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
@@ -41,6 +41,10 @@ public class TwitterDriver {
     FileOutputFormat.setOutputPath(job, new Path(args[1]));
     
     job.setMapperClass(TwitterMapper.class);
+    job.setReducerClass(TwitterReducer.class);
+
+    job.setMapOutputKeyClass(IntWritable.class);
+    job.setMapOutputValueClass(Text.class);
     
     job.setOutputKeyClass(IntWritable.class);
     job.setOutputValueClass(Text.class);

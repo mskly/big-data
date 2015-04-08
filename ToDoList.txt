@@ -4,4 +4,4 @@ Driver - Change output key/value classes of Map/Reduce
 
 Map - Parse out the Tweet text. Change the value type to Text. Put the value as the Tweet Text.
 
-Reducer -???
+Update: This is a MapOnly job for this filtering. I'll just use follower count as key, and Tweet Text as value.

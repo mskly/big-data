@@ -41,10 +41,9 @@ public class TwitterDriver {
     FileOutputFormat.setOutputPath(job, new Path(args[1]));
     
     job.setMapperClass(TwitterMapper.class);
-    job.setReducerClass(TwitterReducer.class);
     
     job.setOutputKeyClass(IntWritable.class);
-    job.setOutputValueClass(IntWritable.class);
+    job.setOutputValueClass(Text.class);
     
     /*
      * Start the MapReduce job and wait for it to finish.

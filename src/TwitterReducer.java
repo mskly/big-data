@@ -39,10 +39,23 @@ public class TwitterReducer extends Reducer<Text, IntWritable, Text, IntWritable
 			  countHigh++;
 		  }
 	  }
+/**
 	  if(countLow >= 10 || countHigh >= 10) {
 		  // TODO: Store the number of occurrences of each word in HBase (with different columns for the counts among low and high-follower users)?
 		  context.write(new Text(key.toString() + "_LOW"), new IntWritable(countLow));
 		  context.write(new Text(key.toString() + "_HIGH"), new IntWritable(countHigh));
 	  }
+
+**/
+	double lowAmount = countLow * 1.0 / lowCount;
+	double highAmount = countHigh * 1.0 / highCount;
+	double highDif = highAmount / lowAmount;
+	double lowDif = lowAmount / highAmount;
+	if( 10 * lowAmount < highAmount ) 
+		  context.write(new Text(key.toString() + "_LOW"), new IntWritable((int)highDif));
+	else
+		  context.write(new Text(key.toString() + "_HIGH"), new IntWritable((int)lowDif));
+
+
   }
 }

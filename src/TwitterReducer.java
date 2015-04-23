@@ -26,13 +26,15 @@ public class TwitterReducer extends Reducer<Text, IntWritable, Text, IntWritable
         highCount = currentJob.getCounters().findCounter(TwitterMapper.TwitterCount.LOW).getValue();  
 	lowCount = currentJob.getCounters().findCounter(TwitterMapper.TwitterCount.HIGH).getValue();  
 **/
-	highCount = context.getCounter(TwitterMapper.TwitterCount.LOW).getValue();
-	lowCount = context.getCounter(TwitterMapper.TwitterCount.HIGH).getValue();
     }
 
   @Override
   public void reduce(Text key, Iterable<IntWritable> values, Context context)
       throws IOException, InterruptedException {
+
+	highCount = context.getCounter(TwitterMapper.TwitterCount.LOW).getValue();
+	lowCount = context.getCounter(TwitterMapper.TwitterCount.HIGH).getValue();
+
 
 	  int countLow = 0;
 	  int countHigh = 0;

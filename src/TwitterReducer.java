@@ -19,11 +19,15 @@ public class TwitterReducer extends Reducer<Text, IntWritable, Text, IntWritable
 
 	@Override
     public void setup(Context context) throws IOException, InterruptedException{
+/**
         Configuration conf = context.getConfiguration();
         Cluster cluster = new Cluster(conf);
         Job currentJob = cluster.getJob(context.getJobID());
         highCount = currentJob.getCounters().findCounter(TwitterMapper.TwitterCount.LOW).getValue();  
 	lowCount = currentJob.getCounters().findCounter(TwitterMapper.TwitterCount.HIGH).getValue();  
+**/
+	highCount = context.getCounter(TwitterMapper.TwitterCount.LOW).getValue();
+	lowCount = context.getCounter(TwitterMapper.TwitterCount.HIGH).getValue();
     }
 
   @Override

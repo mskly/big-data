@@ -17,6 +17,14 @@ import opennlp.tools.sentdetect.SentenceModel;
 import opennlp.tools.tokenize.TokenizerME;
 import opennlp.tools.tokenize.TokenizerModel;
 
+
+import java.io.BufferedWriter;
+import java.io.OutputStreamWriter;
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
+
 public class TwitterMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
 
 	public enum TwitterCount{
@@ -43,6 +51,26 @@ public class TwitterMapper extends Mapper<LongWritable, Text, Text, IntWritable>
 		catch (IOException e) {
 		  e.printStackTrace();
 		}
+	}
+	
+	@Override
+	protected void cleanup(Context context) {
+	try {
+		Path pt = new Path("hdfs:/twittertempfile");
+		FileSystem fs = FileSystem.get(new Configuration());
+		BufferedWriter br = new BufferedWriter(new OutputStreamWriter(fs.create(pt, true)));
+		long hi = context.getCounter(TwitterCount.HIGH).getValue();
+		long low = context.getCounter(TwitterCount.LOW).getValue();
+		br.write(Long.toString(hi));
+		br.write('\n');
+		br.write(Long.toString(low));
+		br.close(); }
+	catch(Exception e) {
+		e.printStackTrace();
+	}
+
+
+
 	}
 	
 	private static SentenceDetectorME sentenceDetector;

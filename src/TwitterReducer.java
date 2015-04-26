@@ -1,7 +1,10 @@
 package src;
 
 
+
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
@@ -10,6 +13,13 @@ import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Cluster; 
 import org.apache.hadoop.conf.Configuration;
 
+import org.apache.hadoop.mapred.JobClient;
+import org.apache.hadoop.mapred.JobID;
+import org.apache.hadoop.mapred.RunningJob;
+import org.apache.hadoop.mapred.JobConf;
+
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 
 
 public class TwitterReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
@@ -18,22 +28,27 @@ public class TwitterReducer extends Reducer<Text, IntWritable, Text, IntWritable
 	private static long lowCount;
 
 	@Override
-    public void setup(Context context) throws IOException, InterruptedException{
-/**
-        Configuration conf = context.getConfiguration();
-        Cluster cluster = new Cluster(conf);
-        Job currentJob = cluster.getJob(context.getJobID());
-        highCount = currentJob.getCounters().findCounter(TwitterMapper.TwitterCount.LOW).getValue();  
-	lowCount = currentJob.getCounters().findCounter(TwitterMapper.TwitterCount.HIGH).getValue();  
-**/
-    }
+	public void setup(Context contex) {
+	
+	try {
+
+		Path pt = new Path("hdfs:/twittertempfile");
+		FileSystem fs = FileSystem.get(new Configuration());
+		BufferedReader br = new BufferedReader(new InputStreamReader(fs.open(pt)));
+		String line = br.readLine();
+		String line2 = br.readLine();
+		lowCount = Long.parseLong(line);
+		highCount = Long.parseLong(line2);
+		}
+
+	catch(IOException e) {
+	e.printStackTrace();
+	}
+	}
 
   @Override
   public void reduce(Text key, Iterable<IntWritable> values, Context context)
       throws IOException, InterruptedException {
-
-	highCount = context.getCounter(TwitterMapper.TwitterCount.LOW).getValue();
-	lowCount = context.getCounter(TwitterMapper.TwitterCount.HIGH).getValue();
 
 
 	  int countLow = 0;

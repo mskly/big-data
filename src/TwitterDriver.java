@@ -1,9 +1,9 @@
-package src;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.DoubleWritable;
 import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
@@ -61,11 +61,19 @@ public class TwitterDriver {
      * Validate that two arguments were passed from the command line.
      */
     if (args.length != 2) {
-      System.out.printf("Usage: AvgWordLength <input dir> <output dir>\n");
+      System.out.printf("Usage: TwitterDriver <input dir> <output dir>\n");
       System.exit(-1);
     }
 
     Configuration conf = new Configuration();
+    try {
+		//Path pt = new Path("hdfs:/twittertempfile");
+		FileSystem fs = FileSystem.get(new Configuration());
+		//fs.delete(pt, true);
+		fs.delete(new Path("hdfs:/twittertempdir/"), true);
+    } catch(Exception e) {
+    	
+    }
     // The default of 60 seconds causes too many tasks to time out, which causes the job to fail. This should allow 10 minutes.
     conf.setLong("mapred.task.timeout", 60000);
     Job job = new Job(conf);
@@ -83,20 +91,14 @@ public class TwitterDriver {
     job.setMapOutputKeyClass(Text.class);
     job.setMapOutputValueClass(IntWritable.class);
     
-    job.setOutputKeyClass(Text.class);
-    job.setOutputValueClass(IntWritable.class);
+    job.setOutputKeyClass(DoubleWritable.class);
+    job.setOutputValueClass(Text.class);
     
     /*
      * Start the MapReduce job and wait for it to finish.
      * If it finishes successfully, return 0. If not, return 1.
      */
     boolean success = job.waitForCompletion(true);
-
-    long lowCount = job.getCounters().findCounter(TwitterMapper.TwitterCount.LOW).getValue();
-    long highCount = job.getCounters().findCounter(TwitterMapper.TwitterCount.HIGH).getValue();
-
-    System.out.println("low count is " + lowCount);
-    System.out.println("high count is " + highCount);
 
     System.exit(success ? 0 : 1);
   }

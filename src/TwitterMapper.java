@@ -1,11 +1,18 @@
-package src;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.InputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.util.HashSet;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
 import org.apache.commons.lang.StringEscapeUtils;
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
@@ -17,19 +24,16 @@ import opennlp.tools.sentdetect.SentenceModel;
 import opennlp.tools.tokenize.TokenizerME;
 import opennlp.tools.tokenize.TokenizerModel;
 
-
-import java.io.BufferedWriter;
-import java.io.OutputStreamWriter;
-
-import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.Path;
-
 public class TwitterMapper extends Mapper<LongWritable, Text, Text, IntWritable> {
 
 	public enum TwitterCount{
-		LOW, HIGH	
+		LOW, HIGH, ALL	
 	}
+	
+	private long lowCount = 0;
+	private long highCount = 0;
+	private long allCount = 0;
+	private HashSet<String> englishWords = new HashSet<String>();
 	
 	public void setup(Context context) {
 		try {
@@ -47,6 +51,17 @@ public class TwitterMapper extends Mapper<LongWritable, Text, Text, IntWritable>
 			POSModel posModel = new POSModel(modelIn);
 			tagger = new POSTaggerME(posModel);
 			modelIn.close();
+			
+			InputStream dictionary = TwitterMapper.class.getResourceAsStream("Englishwords.txt");
+			InputStreamReader dictionaryFileReader = new InputStreamReader(dictionary);
+			BufferedReader dictionaryBufferedReader = new BufferedReader(dictionaryFileReader);
+			
+			String currentWord = dictionaryBufferedReader.readLine();
+			while(currentWord != null) {
+				englishWords.add(currentWord);
+				currentWord = dictionaryBufferedReader.readLine();
+			}
+			dictionaryBufferedReader.close();
 		}
 		catch (IOException e) {
 		  e.printStackTrace();
@@ -55,104 +70,89 @@ public class TwitterMapper extends Mapper<LongWritable, Text, Text, IntWritable>
 	
 	@Override
 	protected void cleanup(Context context) {
-	try {
-		Path pt = new Path("hdfs:/twittertempfile");
-		FileSystem fs = FileSystem.get(new Configuration());
-		BufferedWriter br = new BufferedWriter(new OutputStreamWriter(fs.create(pt, true)));
-		long hi = context.getCounter(TwitterCount.HIGH).getValue();
-		long low = context.getCounter(TwitterCount.LOW).getValue();
-		br.write(Long.toString(hi));
-		br.write('\n');
-		br.write(Long.toString(low));
-		br.close(); }
-	catch(Exception e) {
-		e.printStackTrace();
-	}
-
-
-
+		try {
+			Path pt = new Path("hdfs:/twittertempdir/" + context.getTaskAttemptID());
+			System.out.println(pt.toString() + " " + lowCount+ " " + highCount + " " + allCount);
+			FileSystem fs = FileSystem.get(new Configuration());
+			BufferedWriter br = new BufferedWriter(new OutputStreamWriter(
+					fs.create(pt, true)));
+			br.write(Long.toString(lowCount));
+			br.write('\n');
+			br.write(Long.toString(highCount));
+			br.write('\n');
+			br.write(Long.toString(allCount));
+			br.close();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 	}
 	
 	private static SentenceDetectorME sentenceDetector;
 	private static TokenizerME tokenizer;
 	private static POSTaggerME tagger;
-	private static long lowCount;
-	private static long highCount;
 	
 	private static Pattern followersPattern = Pattern.compile("\"followers_count\":([\\d]+)");
 	private static Pattern langPattern = Pattern.compile("\"lang\":\"en\"");
 	private static Pattern tweetTextPattern = Pattern.compile("\"text\":\"([^\"]+)\"");
-
-  public String removeQuotes(String text) {
-	int i;
-	int j;
-	String newText = text;
-	for(i = 0; i < newText.length(); i++)
-		if(newText.charAt(i) == '\"') {
-			newText = newText.substring(i + 1, newText.length());
-			break;
-			}
-	for(j = newText.length() - 1; j >= 0; j--)
-		if(newText.charAt(j) == '\"') {
-			newText = newText.substring(0, j);
-			break;  }
-	return newText;
-  }
-
-  public String getTweet(String text) {
-	String compSource = "\"source\":";
-	String compText = "\"text\":";
-	int i = 0;
-	while(!text.substring(i, i + 7).equals(compText) )
-		i++; 
-
-	int j = i + 7;
-	i = j;
-	while(!text.substring(j, j + 9).equals(compSource) )
-		j++;
-	return text.substring(i, j - 1);
-	}
  
   @Override
   public void map(LongWritable key, Text value, Context context)
       throws IOException, InterruptedException {
 
-	  String line = value.toString();
-	  	Matcher followersMatcher = followersPattern.matcher(line);
+		String line = value.toString();
+		Matcher followersMatcher = followersPattern.matcher(line);
 		Matcher languageMatcher = langPattern.matcher(line);
 		Matcher tweetTextMatcher = tweetTextPattern.matcher(line);
 		if (languageMatcher.find() && tweetTextMatcher.find() && followersMatcher.find()) {
-				int followers = Integer.parseInt(followersMatcher.group(1));
-				// I figured this was a good split between very few and very many followers
-				if(followers < 100 || followers > 10000) {
-					String tweetText = tweetTextMatcher.group(1);
-					// Convert escape sequences into normal characters
-					tweetText = StringEscapeUtils.unescapeJava(tweetText).toLowerCase();
-					
-					// Remove usernames and hashtags
-					tweetText = tweetText.replaceAll("[@#][\\w]+", " ");
-	
-					String[] sentences = sentenceDetector.sentDetect(tweetText);
-					for (String sentence : sentences) {
-						String[] tokens = tokenizer.tokenize(sentence);
+			int followers = Integer.parseInt(followersMatcher.group(1));
+			String tweetText = tweetTextMatcher.group(1);
+			// Convert escape sequences into normal characters
+			tweetText = StringEscapeUtils.unescapeJava(tweetText).toLowerCase();
+
+			// Remove usernames, hashtags, and URLs
+			tweetText.replaceAll(
+					"(?:rt )?[@#][\\w]+:?|\n|https?://[a-zA-Z0-9\\./]+", " ")
+					.trim();
+			if (tweetText.length() > 2) {
+				String[] sentences = sentenceDetector.sentDetect(tweetText);
+				for (String sentence : sentences) {
+					String[] tokens = tokenizer.tokenize(sentence);
+					boolean english = false;
+					int engWordsFound = 0;
+					int engWordsNeeded = tokens.length / 5;
+					for(String token : tokens) {
+						if(englishWords.contains(token)) {
+							engWordsFound++;
+							if(engWordsFound >= engWordsNeeded) {
+								english = true;
+								break;
+							}
+						}
+					}
+					if(english) {
+						context.getCounter(TwitterCount.ALL).increment(1);
+						allCount++;
+						if (followers < 100) {
+							context.getCounter(TwitterCount.LOW).increment(1);
+							lowCount++;
+						} else if(followers > 10000) {
+							context.getCounter(TwitterCount.HIGH).increment(1);
+							highCount++;
+						}
 						String[] tags = tagger.tag(tokens);
 						for (int i = 0; i < tokens.length; i++) {
-							// Only use words tagged as nouns that don't contain special characters
-							if (tags[i].matches("NNP?S?") && tokens[i].matches("[a-z]+")) {
-
+							// Only use words tagged as nouns or gerunds that don't contain special characters
+							if (tags[i].matches("NNP?S?|VBG")
+									&& tokens[i].matches("[a-z]+")) {
 								context.write(new Text(tokens[i]), new IntWritable(followers));
 							}
 						}
-		
 					}
-					if(followers < 100) 
-							context.getCounter(TwitterCount.LOW).increment(1);
-					else	
-							context.getCounter(TwitterCount.HIGH).increment(1);
 				}
 			}
 		}
+  }
 
-	}
+}
 
 
